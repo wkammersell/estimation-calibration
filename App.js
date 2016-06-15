@@ -16,13 +16,9 @@ Ext.define('CustomApp', {
 	},
     
     fetchWorkItems:function( timeboxScope ){
-        // Show loading message
         this.removeAll();
         this.filters = [];
-        this. estimate_times = {};
-        
-        this._myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Calculating...Please wait."});
-        this._myMask.show();
+        this.estimate_times = {};
         
         // Look for iterations that are within the release
         this.filters = [];
@@ -40,8 +36,15 @@ Ext.define('CustomApp', {
              value: endDate
         });
         
+        var estimateFilter = Ext.create('Rally.data.wsapi.Filter', {
+             property : 'PlanEstimate',
+             operator: '!=',
+             value: 'null'
+        });
+        
         this.filters.push( startDateFilter );
         this.filters.push( endDateFilter );
+        this.filters.push( estimateFilter );
 
 		var dataScope = this.getContext().getDataContext();
 		var store = Ext.create(
@@ -121,7 +124,6 @@ Ext.define('CustomApp', {
     },
     
     makeChart:function(series_data, categories_data){
-        this._myMask.hide();
         // see http://www.highcharts.com/demo/box-plot for good examples
         var chart = this.add({
             xtype: 'rallychart',
@@ -164,7 +166,6 @@ Ext.define('CustomApp', {
     },
     
     showNoDataBox:function(){
-        this._myMask.hide();
         Ext.ComponentQuery.query('container[itemId=stats]')[0].update('There is no data. </br>Check if there are interations in scope and work items with PlanEstimate assigned for iterations');
     },
     

@@ -13,7 +13,7 @@ Ext.define('CustomApp', {
     scopeType: 'release',
 	filters: [],
     pagesize: 2000,
-    estimate_times: {},
+    estimateTimes: {},
     
     launch: function() {
 		this.fetchWorkItems( this.getContext().getTimeboxScope() );
@@ -27,7 +27,7 @@ Ext.define('CustomApp', {
     fetchWorkItems:function( timeboxScope ){
         this.removeAll();
         this.filters = [];
-        this.estimate_times = {};
+        this.estimateTimes = {};
         
         // Look for iterations that are within the release
         this.filters = [];
@@ -63,7 +63,7 @@ Ext.define('CustomApp', {
 				fetch: ['InProgressDate','AcceptedDate','PlanEstimate'],
 				context: dataScope,
 				pageSize: this.pagesize,
-				limit:this.pagesize,
+				limit: this.pagesize,
 				sorters:[{
 					property:'PlanEstimate',
 					direction: 'ASC'
@@ -80,13 +80,14 @@ Ext.define('CustomApp', {
                     _.each( records, function( record ) {
 						if ( record.data.InProgressDate !== null && record.data.AcceptedDate !== null ) {
 							var estimate = record.data.PlanEstimate;
+							
 							// convert cycle time from milliseconds to days
-							var cycle_time = ( record.data.AcceptedDate - record.data.InProgressDate ) / ( 1000 * 60 * 60 * 24 );
+							var cycleTime = ( record.data.AcceptedDate - record.data.InProgressDate ) / ( 1000 * 60 * 60 * 24 );
 
-							if ( !( _.contains( Object.keys( this.estimate_times ), estimate.toString() ) ) ) {
-								this.estimate_times[ estimate ] = [];
+							if ( !( _.contains( Object.keys( this.estimateTimes ), estimate.toString() ) ) ) {
+								this.estimateTimes[ estimate ] = [];
 							}
-							this.estimate_times[ estimate ].push( cycle_time );
+							this.estimateTimes[ estimate ].push( cycleTime );
                         }
                     }, this );
                     this.prepareChart();
@@ -96,12 +97,12 @@ Ext.define('CustomApp', {
     },
   
     prepareChart:function(){
-         if (Object.keys( this.estimate_times ).length > 0) {
-            var categories = Object.keys( this.estimate_times );
+         if (Object.keys( this.estimateTimes ).length > 0) {
+            var categories = Object.keys( this.estimateTimes );
             var series = [];
             
-			_.each( this.estimate_times, function( values ) {
-				values = values.sort(function(a, b){return a-b; } );
+			_.each( this.estimateTimes, function( values ) {
+				values = values.sort(function(a, b){ return a - b; } );
 
 				// logic from http://thiruvikramangovindarajan.blogspot.com/2014/10/calculate-quartile-q1-q3-and-median-q2.html
 				var Q1 = 0;
@@ -132,7 +133,7 @@ Ext.define('CustomApp', {
         }    
     },
     
-    makeChart:function(series_data, categories_data){
+    makeChart:function(seriesData, categoriesData){
         // see http://www.highcharts.com/demo/box-plot for good examples
         var chart = this.add({
             xtype: 'rallychart',
@@ -166,9 +167,9 @@ Ext.define('CustomApp', {
             chartData: {
                 series: [ {
 					name: 'Cycle Time (Days)',
-					data: series_data
+					data: seriesData
                 } ],
-                categories: categories_data
+                categories: categoriesData
             }
           
         });

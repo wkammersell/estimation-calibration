@@ -16,19 +16,20 @@ Ext.define('CustomApp', {
     estimate_times: {},
     
     launch: function() {
-		console.log("Launching...");
 		this.fetchWorkItems( this.getContext().getTimeboxScope() );
     },
     
     onTimeboxScopeChange: function(newTimeboxScope) {
-		console.log("Timebox Scope Changed...");
 		this.callParent( arguments );
 		this.fetchWorkItems( newTimeboxScope );
 	},
     
     fetchWorkItems:function( timeboxScope ){
-        console.log("Fetching Work Items...");
         // Show loading message
+        this.removeAll();
+        this.filters = [];
+        this. estimate_times = {};
+        
         this._myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Calculating...Please wait."});
         this._myMask.show();
         
@@ -37,7 +38,7 @@ Ext.define('CustomApp', {
         var startDate = timeboxScope.record.raw.ReleaseStartDate;
         var endDate = timeboxScope.record.raw.ReleaseDate;
         var startDateFilter = Ext.create('Rally.data.wsapi.Filter', {
-             property : 'AcceptedDate',
+             property : 'InProgressDate',
              operator: '>=',
              value: startDate
         });
@@ -73,7 +74,6 @@ Ext.define('CustomApp', {
             scope: this,
             callback: function( records, operation ) {
                 if( operation.wasSuccessful() ) {
-					console.log("Sorting Cycle Times by Estimate...");
                     _.each( records, function( record ) {
 						if ( record.data.InProgressDate !== null && record.data.AcceptedDate !== null ) {
 							var estimate = record.data.PlanEstimate;
@@ -94,7 +94,6 @@ Ext.define('CustomApp', {
   
     prepareChart:function(){
          if (Object.keys( this.estimate_times ).length > 0) {
-            console.log( "Making the chart..." );
             var categories = Object.keys( this.estimate_times );
             var series = [];
             
@@ -140,16 +139,16 @@ Ext.define('CustomApp', {
                     type: 'boxplot'
                 },
                 title:{
-                    text: 'Cycle Times by Estimation'
+                    text: 'Cycle Time by Plan Estimate'
                 },
                 xAxis: {
                     title: {
-                        text: 'Estimations'
+                        text: 'Plan Estimate (Points)'
                     }
                 },
                 yAxis:{
                     title: {
-                        text: 'Cycle Times'
+                        text: 'Cycle Time (Days)'
                     },
                     allowDecimals: false,
                     min : 0
@@ -164,7 +163,7 @@ Ext.define('CustomApp', {
                             
             chartData: {
                 series: [ {
-					name: 'Cycle Times',
+					name: 'Cycle Time (Days)',
 					data: series_data
                 } ],
                 categories: categories_data

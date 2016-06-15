@@ -71,9 +71,7 @@ Ext.define('CustomApp', {
                     _.each( records, function( record ) {
 						if ( record.data.InProgressDate !== null && record.data.AcceptedDate !== null ) {
 							var estimate = record.data.PlanEstimate;
-							
-							// convert cycle time from milliseconds to days
-							var cycleTime = ( record.data.AcceptedDate - record.data.InProgressDate ) / ( 1000 * 60 * 60 * 24 );
+							var cycleTime = this.countWeekDays( new Date( record.data.InProgressDate ), new Date( record.data.AcceptedDate ) );
 
 							if ( !( _.contains( Object.keys( this.estimateTimes ), estimate.toString() ) ) ) {
 								this.estimateTimes[ estimate ] = [];
@@ -174,5 +172,20 @@ Ext.define('CustomApp', {
 		count = medianArr.length;
 		median = (count % 2 === 0) ? (medianArr[(medianArr.length/2) - 1] + medianArr[(medianArr.length / 2)]) / 2:medianArr[Math.floor(medianArr.length / 2)];
 		return median;
+	},
+	
+	countWeekDays:function( dDate1, dDate2 ) {
+		var days = 0;
+		var dateItr = dDate1;
+		
+		while( dateItr < dDate2 ) {
+			dateItr.setDate( dateItr.getDate() + 1 );
+			// if the new day is a weekend, don't count it
+			// TODO: be locale aware and DST aware
+			if( ( dateItr.getDay() != 6 ) && ( dateItr.getDay() !== 0 ) ) {
+				days++;
+			} 
+		}
+		return days;
 	}
 });

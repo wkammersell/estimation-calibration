@@ -1,4 +1,3 @@
-
 Ext.define('CustomApp', {
     extend: 'Rally.app.TimeboxScopedApp',
     scopeType: 'release',
@@ -6,17 +5,26 @@ Ext.define('CustomApp', {
     pagesize: 2000,
     estimateTimes: {},
     
-    launch: function() {
-		this.fetchWorkItems( this.getContext().getTimeboxScope() );
-    },
-    
-    onTimeboxScopeChange: function(newTimeboxScope) {
+    onScopeChange: function( newTimeboxScope ) {
 		this.callParent( arguments );
 		this.fetchWorkItems( newTimeboxScope );
 	},
     
     fetchWorkItems:function( timeboxScope ){
-        this.removeAll();
+		// Show loading message
+        this._myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Calculating...Please wait."});
+        this._myMask.show();
+        
+        // Remove any existing chart
+        if( this.down( 'rallychart' ) ) {
+			this.down( 'rallychart' ).destroy();
+        }
+        
+        // Remove any 'no data' message that was shown
+        if( this.down( 'label' ) ) {
+			this.down( 'label' ).destroy();
+        }
+    
         this.filters = [];
         this.estimateTimes = {};
         
@@ -124,6 +132,10 @@ Ext.define('CustomApp', {
     
     makeChart:function(seriesData, categoriesData){
         // see http://www.highcharts.com/demo/box-plot for good examples
+        this._myMask.hide();
+        if( this.down( 'rallychart' ) ) {
+			this.down( 'rallychart' ).destroy();
+        }
         var chart = this.add({
             xtype: 'rallychart',
             chartConfig: {
@@ -165,7 +177,11 @@ Ext.define('CustomApp', {
     },
     
     showNoDataBox:function(){
-        Ext.ComponentQuery.query('container[itemId=stats]')[0].update('There is no data. </br>Check if there are interations in scope and work items with PlanEstimate assigned for iterations');
+        this._myMask.hide();
+        this.add({
+			xtype: 'label',
+			text: 'There is no data. Check if there are iterations in scope and work items with PlanEstimate assigned for iterations'
+        });
     },
     
     medianX:function(medianArr) {
@@ -179,11 +195,11 @@ Ext.define('CustomApp', {
 		var dateItr = dDate1;
 		
 		while( dateItr < dDate2 ) {
-			dateItr.setDate( dateItr.getDate() + 1 );
+			dateItr.setDate( dateItr.getDate() + 0.25 );
 			// if the new day is a weekend, don't count it
 			// TODO: be locale aware and DST aware
 			if( ( dateItr.getDay() != 6 ) && ( dateItr.getDay() !== 0 ) ) {
-				days++;
+				days = days + 0.25;
 			} 
 		}
 		return days;

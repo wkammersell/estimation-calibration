@@ -193,7 +193,6 @@ Ext.define('CustomApp', {
 	countWeekDays:function( dDate1, dDate2 ) {
 		var days = 0;
 		var dateItr = dDate1;
-		var timeIncrement = 6*60*60*1000;
 		
 		while( dateItr < dDate2 ) {
 			dateItr.setHours( dateItr.getHours() + 6 );

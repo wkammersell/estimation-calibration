@@ -193,9 +193,10 @@ Ext.define('CustomApp', {
 	countWeekDays:function( dDate1, dDate2 ) {
 		var days = 0;
 		var dateItr = dDate1;
+		var timeIncrement = 6*60*60*1000;
 		
 		while( dateItr < dDate2 ) {
-			dateItr.setDate( dateItr.getDate() + 0.25 );
+			dateItr.setHours( dateItr.getHours() + 6 );
 			// if the new day is a weekend, don't count it
 			// TODO: be locale aware and DST aware
 			if( ( dateItr.getDay() != 6 ) && ( dateItr.getDay() !== 0 ) ) {

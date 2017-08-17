@@ -147,7 +147,16 @@
 					max_index--;
 				}
 				
-				boxplots.push( [ values[ min_index ], Q1, Q2, Q3, values[ max_index ] ] );
+				var boxplotPoint = {};
+				boxplotPoint.x = boxplots.length;
+				boxplotPoint.low = values[ min_index ];
+				boxplotPoint.q1 = Q1;
+				boxplotPoint.median = Q2;
+				boxplotPoint.q3 = Q3;
+				boxplotPoint.high = values[ max_index ];
+				boxplotPoint.count = max_index - min_index + 1;
+				
+				boxplots.push( boxplotPoint );
             }, this );
 
             this.makeChart( boxplots, outliers, categories );
@@ -196,7 +205,11 @@
                 series: [
 					{
 						name: 'Cycle Time (Days)',
-						data: boxplots
+						data: boxplots,
+						tooltip: {
+							headerFormat: "<b>Estimate:</b> {point.x}<br/>",
+							pointFormat: "<b>Maximum:</b> {point.high}<br/><b>Upper quartile:</b> {point.q3}<br/><b>Median:</b> {point.median}<br/><b>Lower quartile:</b> {point.q1}<br/><b>Minimum:</b> {point.low}<br/><b>Count:</b> {point.count}"
+						}
 					},
 					{
 						name: 'Outliers (Days)',

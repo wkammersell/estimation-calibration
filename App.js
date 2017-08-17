@@ -4,13 +4,14 @@ Ext.define('CustomApp', {
 	filters: [],
     pagesize: 2000,
     estimateTimes: {},
+    OUTLIER_THRESHOLD: 1.5,
     
-    onScopeChange: function( newTimeboxScope ) {
+    onScopeChange: function( scope ) {
 		this.callParent( arguments );
-		this.fetchWorkItems( newTimeboxScope );
+		this.fetchWorkItems( scope );
 	},
     
-    fetchWorkItems:function( timeboxScope ){
+    fetchWorkItems:function( scope ){
 		// Show loading message
         this._myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Calculating...Please wait."});
         this._myMask.show();
@@ -28,10 +29,10 @@ Ext.define('CustomApp', {
         this.filters = [];
         this.estimateTimes = {};
         
-        // Look for iterations that are within the release
+        // Look for stories that were started and accepted within the release timebox	
         this.filters = [];
-        var startDate = timeboxScope.record.raw.ReleaseStartDate;
-        var endDate = timeboxScope.record.raw.ReleaseDate;
+        var startDate = scope.record.raw.ReleaseStartDate;
+        var endDate = scope.record.raw.ReleaseDate;
         var startDateFilter = Ext.create('Rally.data.wsapi.Filter', {
              property : 'InProgressDate',
              operator: '>=',
@@ -94,9 +95,10 @@ Ext.define('CustomApp', {
     },
   
     prepareChart:function(){
-         if (Object.keys( this.estimateTimes ).length > 0) {
+        if (Object.keys( this.estimateTimes ).length > 0) {
             var categories = Object.keys( this.estimateTimes );
-            var series = [];
+            var boxplots = [];
+            var outliers = [];
             
 			_.each( this.estimateTimes, function( values ) {
 				values = values.sort(function(a, b){ return a - b; } );
@@ -120,18 +122,34 @@ Ext.define('CustomApp', {
 				Q1 = this.medianX(q1Arr);
 				Q2 = this.medianX(q2Arr);
 				Q3 = this.medianX(q3Arr);
-				series.push( [ values[0], Q1, Q2, Q3, values[ values.length - 1] ] );
+				
+				var interquartile_range = Q3 - Q1;
+				// find lower outliers
+				var min_index = 0;
+				while( values[ min_index ] < ( Q1 - ( this.OUTLIER_THRESHOLD * interquartile_range ) ) ) {
+					outliers.push( [ boxplots.length, values[ min_index ] ] );
+					min_index++;
+				}
+				
+				// find upper outliers
+				var max_index = values.length - 1;
+				while( values[ max_index ] > ( Q3 + ( this.OUTLIER_THRESHOLD * interquartile_range ) ) ) {
+					outliers.push( [ boxplots.length, values[ max_index ] ] );
+					max_index--;
+				}
+				
+				boxplots.push( [ values[ min_index ], Q1, Q2, Q3, values[ max_index ] ] );
             }, this );
 
-            this.makeChart( series, categories );
+            this.makeChart( boxplots, outliers, categories );
         }
         else{
             this.showNoDataBox();
-        }    
+        }
     },
     
-    makeChart:function(seriesData, categoriesData){
-        // see http://www.highcharts.com/demo/box-plot for good examples
+    makeChart:function( boxplots, outliers, categoriesData){
+       // see http://www.highcharts.com/demo/box-plot for good examples
         this._myMask.hide();
         if( this.down( 'rallychart' ) ) {
 			this.down( 'rallychart' ).destroy();
@@ -166,14 +184,28 @@ Ext.define('CustomApp', {
             },
                             
             chartData: {
-                series: [ {
-					name: 'Cycle Time (Days)',
-					data: seriesData
-                } ],
+                series: [
+					{
+						name: 'Cycle Time (Days)',
+						data: boxplots
+					},
+					{
+						name: 'Outliers (Days)',
+						type: 'scatter',
+						data: outliers,
+						tooltip: {
+							pointFormat: '{point.y}'
+						}
+					} 
+                ],
                 categories: categoriesData
             }
           
         });
+        
+        // Workaround bug in setting colors - http://stackoverflow.com/questions/18361920/setting-colors-for-rally-chart-with-2-0rc1/18362186
+        var colors = [ "#392351", "#392351" ];
+        chart.setChartColors( colors );
     },
     
     showNoDataBox:function(){

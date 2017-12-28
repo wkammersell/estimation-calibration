@@ -111,6 +111,8 @@ Ext.define('CustomApp', {
 					point.x = story.estimate;
 					point.y = story.cycleTime;
 					point.tooltip = story.id + " - " + story.name + "<br/>Cycle Time: " + story.cycleTime + "d";
+					point.name = story.name;
+					point.id = story.id;
 					seriesData[0].data.push( point );
 				}, app );
 			}, app );
@@ -524,6 +526,7 @@ Ext.define('CustomApp', {
         	
         	scatterPoint.issueScore = Math.abs( scatterPoint.x - target );
         	scatterPoint.tooltip += '<br/>Estimate: ' + scatterPoint.x + '<br/>Target Estimate: ' + target;
+        	scatterPoint.target = target;
         	
         	if( scatterPoint.x != target ) {
         		scatterPoint.color = '#61257a';
@@ -537,25 +540,141 @@ Ext.define('CustomApp', {
         var rankedIssues = _.sortBy( chartData.series[0].data, function(point){ return point.issueScore; });
         rankedIssues.reverse();
         
-        var worstIssues = [];
-        for( i = 0; i < 6; i ++ ) {
+        
+		
+		var worstIssues = [];
+        for( i = 0; i < 5; i ++ ) {
         	var tooltipMatch = rankedIssues[ i ].tooltip;
         	_.each( chartData.series[0].data, function( scatterPoint ) {
         		if( scatterPoint.tooltip == tooltipMatch ) {
         			scatterPoint.marker = {};
         			scatterPoint.marker.symbol = 'diamond';
         			scatterPoint.color = '#3300ff';
-        			worstIssues.push( scatterPoint );
+        			
+        			worstIssues.push( [ scatterPoint.id, scatterPoint.name, scatterPoint.y, scatterPoint.x, scatterPoint.target ] );
         		}
         	});
         }
-        console.log( worstIssues );
+        
+        var worstIssuesStore = Ext.create('Ext.data.ArrayStore', {
+			storeId: 'worstIssues',
+			fields: [
+			   { name: 'id', type: 'string' },
+			   { name: 'name', type: 'string' },
+			   { name: 'cycleTime', type: 'float' },
+			   { name: 'estimate', type: 'integer' },
+			   { name: 'targetEstimate', type: 'integer' }
+			],
+			data: worstIssues
+		});
+        
+        console.log( worstIssuesStore.data );
         
         chartData.series.unshift( maxCycleTimes );
         chartData.series.unshift( minCycleTimes );
         
         // Reshow our scatter plot
         app.add( Ext.merge( scatterChart.initialConfig, chartData ) );
+        
+        app.add( {
+			xtype: 'label',
+			html: 'On the scatter plot of cycle times by estimate, we now have lines to note the minimum and maximum cycle times for each estimate. The five work items that need the most readjustment have been marked in blue diamonds, and listed below:<br/><br/>',
+			style: {
+				'font-size': '15px'
+			}
+		} );
+		
+		app.add( {
+			xtype: 'rallygrid',
+			showPagingToolbar: false,
+			showRowActionsColumn: false,
+			editable: false,
+			store: worstIssuesStore,
+			columnCfgs: [
+				{
+				// TODO: Get this to use the nice formattedID renderer
+				//	xtype: 'templatecolumn',
+				//	tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
+					text: 'ID',
+					dataIndex: 'id',
+					flex: true
+				},
+				{
+					text: 'Name',
+					dataIndex: 'name',
+					flex: true
+				},
+				{
+					text: 'Cycle Time',
+					dataIndex: 'cycleTime',
+					flex: true
+				},
+				{
+					text: 'Estimate',
+					dataIndex: 'estimate',
+					flex: true
+				},
+				{
+					text: 'Target Estimate',
+					dataIndex: 'targetEstimate',
+					flex: true
+				}
+			]
+		});
+		
+		app.add( {
+			xtype: 'label',
+			html: '<br/>',
+			style: {
+				'font-size': '15px'
+			}
+		} );
+		
+		app.add( {
+			xtype: 'rallybutton',
+			text: 'Brainstorm Actions to Realign Estimates',
+			handler: function(){ app.onBrainstormActions(); },
+			style: {
+				'background-color': '#61257a',
+				'border-color': '#61257a'
+			}
+        } );
+    },
+    
+    onBrainstormActions:function(){
+    	while( app.down( 'label' ) ) {
+			app.down( 'label' ).destroy();
+        };
+        while( app.down( 'button' ) ) {
+			app.down( 'button' ).destroy();
+        };
+        while( app.down( 'rallychart' ) ) {
+			app.down( 'rallychart' ).destroy();
+        };
+        
+        app.add( {
+			xtype: 'label',
+			html: 'What actions could you take to better estimate work items like these? Some questions to spark discussion:<br/><ul><li>What, had we known it sooner, would have changed our estimate?</li><li>Could this work have been broken down into smaller items?</li><li>What risks manifested during this work?</li><li>Did emergency work cause us to put this work on hold?</li><li>Are there patterns or similarities to this work that you could be on the lookout for in future estimations?</li></ul>Please enter actions you could take in the future to better estimate the effort for work like this in the future.<br/><br/>NOTE: These actions are not currently saved, so make a copy for later if you\' like.',
+			style: {
+				'font-size': '15px'
+			}
+		} );
+		
+		app.add( {
+			xtype: 'textareafield',
+			grow: true,
+			name: 'actionItems',
+			anchor: '100%',
+			width: '100%'
+		} );
+		
+		app.add( {
+			xtype: 'label',
+			html: '<br/>Congrats in advance for committing to these action items and making your estimates more consistent and predictable. Hopefully you\'ll check back after they\'re implemented to see how your cycle times have changed and identify your next actions for continual improvement.',
+			style: {
+				'font-size': '15px'
+			}
+		} );
     },
     
     showNoDataBox:function(){

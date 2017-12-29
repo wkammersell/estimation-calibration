@@ -161,7 +161,7 @@ Ext.define('CustomApp', {
 					gridLineWidth: 0
 				},
 				title:{
-					text: 'Cycle Time by Estimate'
+					text: ''
 				},
 				tooltip: {
 					useHTML: true,
@@ -289,7 +289,7 @@ Ext.define('CustomApp', {
 					type: 'boxplot'
 				},
 				title:{
-					text: 'Cycle Time by Plan Estimate'
+					text: ''
 				},
 				xAxis: {
 					title: {

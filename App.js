@@ -505,25 +505,38 @@ Ext.define('CustomApp', {
 		// Create lookup for estimate by cycle time
 		var minEstimateSeriesData = [];
 		var maxEstimateSeriesData = [];
-		_.each( _.keys( estimateTargets ), function( estimate ) {
-			var diff;
-			if( _.isEmpty( minEstimateSeriesData ) ) {
-				var nextEstimate = _.keys( estimateTargets )[ _.keys( estimateTargets ).indexOf( estimate ) + 1 ];
-				diff = ( estimateTargets[ nextEstimate ] - estimateTargets[ estimate ] ) * ( 1 - ( estimate / nextEstimate ) );
-			} else {
-				var priorEstimate = _.keys( estimateTargets )[ _.keys( estimateTargets ).indexOf( estimate ) - 1 ];
-				diff = ( estimateTargets[ estimate ] - estimateTargets[ priorEstimate ] ) * ( priorEstimate / estimate );
+		_.keys( estimateTargets ).forEach( function( estimate, index ) {
+			var prevDiff = null;
+			// If we're on the first estimate, there's no prior
+			if( minEstimateSeriesData.length !== 0 ) {
+				var priorEstimate = _.keys( estimateTargets )[ index - 1 ];
+				prevDiff = ( estimateTargets[ estimate ] - estimateTargets[ priorEstimate ] ) * ( priorEstimate / estimate );
 			}
 			
-			var minTargetCycleTime = estimateTargets[ estimate ] - diff;
+			var nextDiff = null;
+			// If we're on the last estimate, there's no next
+			if( maxEstimateSeriesData.length != estimateTargets.length - 1 ) {
+				var nextEstimate = _.keys( estimateTargets )[ index + 1 ];
+				nextDiff = ( estimateTargets[ nextEstimate ] - estimateTargets[ estimate ] ) * ( 1 - ( estimate / nextEstimate ) );
+			}
+			
+			if( !prevDiff && !nextDiff ) {
+				prevDiff = nextDiff = 0;
+			} else if( !prevDiff ) {
+				prevDiff = nextDiff;
+			} else if( !nextDiff ) {
+				nextDiff = prevDiff;
+			}
+			
+			var minTargetCycleTime = estimateTargets[ estimate ] - prevDiff;
 			minEstimateSeriesData.push( {
-				x: estimate,
+				x: parseInt( estimate, 10 ),
 				y: minTargetCycleTime,
 				tooltip: 'Minimum Target Cycle Time: ' + minTargetCycleTime
 			});
-			var maxTargetCycleTime = estimateTargets[ estimate ] + diff;
+			var maxTargetCycleTime = estimateTargets[ estimate ] + nextDiff;
 			maxEstimateSeriesData.push( {
-				x: estimate,
+				x: parseInt( estimate, 10 ),
 				y: maxTargetCycleTime,
 				tooltip: 'Maximum Target Cycle Time: ' + maxTargetCycleTime
 			});
@@ -553,7 +566,6 @@ Ext.define('CustomApp', {
 		
 		chartData = scatterChart.getChartData();
 		
-		var issues = [];
 		_.each( chartData.series[0].data, function( scatterPoint ) {
 			var target;
 			var maxEstimateSeriesIndex = _.findKey( maxEstimateSeriesData, function(v) { return v.y > scatterPoint.y; });
@@ -571,8 +583,12 @@ Ext.define('CustomApp', {
 				scatterPoint.issueScore = Math.abs( scatterPoint.x - target ) ;
 			}
 			// Include the cycle time in the math to break ties
-			// TODO: This could be smarter by looking for the cycle time farthest from the median
-			scatterPoint.issueScore += ( scatterPoint.y / 1000 );
+			var cycleTimeScore = ( Math.abs( maxEstimateSeriesData[ maxEstimateSeriesIndex ].y - scatterPoint.y ) / 1000 );
+			if ( scatterPoint.x - target >= 0 ) {
+				scatterPoint.issueScore += cycleTimeScore;
+			} else {
+				scatterPoint.issueScore -= cycleTimeScore;
+			}
 			
 			scatterPoint.tooltip += '<br/>Estimate: ' + scatterPoint.x + '<br/>Target Estimate: ';
 			if( target !== undefined ) {
@@ -647,7 +663,7 @@ Ext.define('CustomApp', {
 		
 		app.add( {
 			xtype: 'label',
-			html: 'On the scatter plot of cycle times by estimate, we now have lines to note the minimum and maximum cycle times for each estimate. The five stories that need the most readjustment have been marked in blue diamonds, and listed below:<br/><br/>',
+			html: 'On the scatter plot of cycle times by estimate, we now have lines to note the minimum and maximum cycle times for each estimate. The stories that need the most readjustment have been marked in blue diamonds, and listed below:<br/><br/>',
 			style: {
 				'font-size': '15px'
 			}

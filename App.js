@@ -42,8 +42,8 @@ Ext.define('CustomApp', {
 		
 		var estimateFilter = Ext.create('Rally.data.wsapi.Filter', {
 			property : 'PlanEstimate',
-			operator: '!=',
-			value: 'null'
+			operator: '>',
+			value: '0'
 		});
 		
 		filters.push( startDateFilter );
@@ -207,7 +207,7 @@ Ext.define('CustomApp', {
 		
 		app.add( {
 			xtype: 'label',
-			html: '<br/><br/>* Only stories marked in-progress and accepted in this timebox are tracked. Work items with a cycle time of 0.25 days or less are ignored.',
+			html: '<br/><br/>* Only stories marked in-progress and accepted in this timebox are tracked. Stories with no estimate, an estimate of 0, or a cycle time of 0.25 days or less are ignored.',
 			style: {
 				'font-size': '9px'
 			}
@@ -328,6 +328,9 @@ Ext.define('CustomApp', {
 						data: outliers,
 						tooltip: {
 							pointFormat: '{point.y}'
+						},
+						marker: {
+							symbol: 'circle'
 						}
 					} 
 				],
@@ -492,6 +495,7 @@ Ext.define('CustomApp', {
 		} );
 	},
 	
+	// Create bands for min and max cycle times per estimate, and identify the top 5 stories out of the bands
 	onIdentifyImprovements:function( estimateTargets ) {
 		// Remove any existing components
 		while( app.down( '*' ) ) {
@@ -511,27 +515,41 @@ Ext.define('CustomApp', {
 				diff = ( estimateTargets[ estimate ] - estimateTargets[ priorEstimate ] ) * ( priorEstimate / estimate );
 			}
 			
-			minEstimateSeriesData.push( { x: estimate, y: estimateTargets[ estimate ] - diff } );
-			maxEstimateSeriesData.push( { x: estimate, y: estimateTargets[ estimate ] + diff } );
+			var minTargetCycleTime = estimateTargets[ estimate ] - diff;
+			minEstimateSeriesData.push( {
+				x: estimate,
+				y: minTargetCycleTime,
+				tooltip: 'Minimum Target Cycle Time: ' + minTargetCycleTime
+			});
+			var maxTargetCycleTime = estimateTargets[ estimate ] + diff;
+			maxEstimateSeriesData.push( {
+				x: estimate,
+				y: maxTargetCycleTime,
+				tooltip: 'Maximum Target Cycle Time: ' + maxTargetCycleTime
+			});
 		});
-				
-		var minCycleTimes = {};
-		minCycleTimes.type = 'line';
-		minCycleTimes.name = 'Min Target Cycle Times';
-		minCycleTimes.data = minEstimateSeriesData;
-		minCycleTimes.lineWidth = 2;
-		minCycleTimes.marker = {};
-		minCycleTimes.marker.enabled = false;
-		minCycleTimes.color = '#ad3408';
 		
-		var maxCycleTimes = {};
-		maxCycleTimes.type = 'line';
-		maxCycleTimes.name = 'Max Target Cycle Times';
-		maxCycleTimes.data = maxEstimateSeriesData;
-		maxCycleTimes.lineWidth = 2;
-		maxCycleTimes.marker = {};
-		maxCycleTimes.marker.enabled = false;
-		maxCycleTimes.color = '#ad3408';
+		var minCycleTimes = {
+			type: 'line',
+			name: 'Min Target Cycle Times',
+			data: minEstimateSeriesData,
+			lineWidth: 2,
+			marker: {
+				enabled: false
+			},
+			color:'#ad3408'
+		};
+		
+		var maxCycleTimes = {
+			type: 'line',
+			name: 'Max Target Cycle Times',
+			data: maxEstimateSeriesData,
+			lineWidth: 2,
+			marker: {
+				enabled: false
+			},
+			color:'#ad3408'
+		};
 		
 		chartData = scatterChart.getChartData();
 		
@@ -545,10 +563,23 @@ Ext.define('CustomApp', {
 				target = undefined;
 			}
 			
+			if( target === undefined ) {
+				// Set an arbitrarily high score for stories whose estimates are above the current team's scale, as we don't know how bad they are.
+				// Subtract the point's estimate as smaller estimates that are off the scale are worst
+				scatterPoint.issueScore = 1000 - scatterPoint.x;
+			} else {
+				scatterPoint.issueScore = Math.abs( scatterPoint.x - target ) ;
+			}
 			// Include the cycle time in the math to break ties
 			// TODO: This could be smarter by looking for the cycle time farthest from the median
-			scatterPoint.issueScore = Math.abs( scatterPoint.x - target ) + ( scatterPoint.y / 1000 );
-			scatterPoint.tooltip += '<br/>Estimate: ' + scatterPoint.x + '<br/>Target Estimate: ' + target;
+			scatterPoint.issueScore += ( scatterPoint.y / 1000 );
+			
+			scatterPoint.tooltip += '<br/>Estimate: ' + scatterPoint.x + '<br/>Target Estimate: ';
+			if( target !== undefined ) {
+				scatterPoint.tooltip += target;
+			} else {
+				scatterPoint.tooltip += '>' + maxEstimateSeriesData[ maxEstimateSeriesData.length - 1 ].x;
+			}
 			scatterPoint.target = target;
 			
 			if( scatterPoint.x != target ) {
@@ -563,8 +594,6 @@ Ext.define('CustomApp', {
 		var rankedIssues = _.sortBy( chartData.series[0].data, function(point){ return point.issueScore; });
 		rankedIssues.reverse();
 		
-		
-		
 		var worstIssues = [];
 		for( i = 0; i < 5; i++ ) {
 			var tooltipMatch = rankedIssues[ i ].tooltip;
@@ -574,6 +603,13 @@ Ext.define('CustomApp', {
 					scatterPoint.marker = {};
 					scatterPoint.marker.symbol = 'diamond';
 					scatterPoint.color = '#3300ff';
+					
+					var targetString;
+					if( scatterPoint.target !== undefined ) {
+						targetString = scatterPoint.target.toString();
+					} else {
+						targetString = '>' + maxEstimateSeriesData[ maxEstimateSeriesData.length - 1 ].x;
+					}
 					
 					worstIssues.push( [ 
 						// TODO: See if we can get the nice formatted ID renderer to work
@@ -585,7 +621,7 @@ Ext.define('CustomApp', {
 						scatterPoint.name,
 						scatterPoint.y,
 						scatterPoint.x,
-						scatterPoint.target
+						targetString
 					]);
 				}
 			}
@@ -598,7 +634,7 @@ Ext.define('CustomApp', {
 				{ name: 'name', type: 'string' },
 				{ name: 'cycleTime', type: 'float' },
 				{ name: 'estimate', type: 'integer' },
-				{ name: 'targetEstimate', type: 'integer' }
+				{ name: 'targetEstimate', type: 'string' }
 			],
 			data: worstIssues
 		});
@@ -687,7 +723,7 @@ Ext.define('CustomApp', {
 		
 		app.add( {
 			xtype: 'label',
-			html: 'What actions could you take to better estimate stories like these? Some questions to spark discussion:<br/><ul><li>What, had we known it sooner, would have changed our estimate?</li><li>Could this work have been broken down into smaller items?</li><li>What risks manifested during this work?</li><li>Did emergency work cause us to put this work on hold?</li><li>Are there patterns or similarities to this work that you could be on the lookout for in future estimations?</li></ul>Please enter actions you could take in the future to better estimate the effort for work like this in the future.<br/><br/>NOTE: These actions are not currently saved, so make a copy for later if you\' like.',
+			html: 'What actions could you take to better estimate stories like these? Some questions to spark discussion:<br/><ul><li>What, had you known it sooner, would have changed your estimate? How could you have know sooner?</li><li>Could this work have been broken down into smaller stories?</li><li>What risks manifested during this work? Could they have been avoided or mitigated?</li><li>Did emergency work cause you to put this work on hold? If so, was it the right decision to change priorities?</li><li>Are there patterns or similarities to this work that you could watch for in future estimations?</li></ul>Please enter actions you could take in the future to better estimate the effort for stories like these in the future.<br/><br/>NOTE: These actions are not currently saved, so make a copy for later if you\'d like. You could even save reminders as a template for future stories.',
 			style: {
 				'font-size': '15px'
 			}

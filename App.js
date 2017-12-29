@@ -407,7 +407,7 @@ Ext.define('CustomApp', {
 		
 		app.add( {
 			xtype: 'label',
-			html: 'Stories with an estimate of ' + bestEstimate + ' had the best balance of a tight interquartile range and a large number of stories. Let\'s use this to set target relative cycle times for our estimates.<br/><br/>',
+			html: 'Stories with an estimate of ' + bestEstimate + ' had the best balance of a tight interquartile range and a large number of stories. Let\'s use this to set ideal relative cycle times for our estimates.<br/><br/>',
 			style: {
 				'font-size': '15px'
 			}
@@ -415,8 +415,8 @@ Ext.define('CustomApp', {
 		
 		app.add( {
 			xtype: 'rallybutton',
-			text: 'Project Target Cycle Times',
-			handler: function(){ app.onProjectTargetCycleTimesButton( bestEstimate, bestMedianCycleTime ); },
+			text: 'Project Ideal Cycle Times',
+			handler: function(){ app.onProjectIdealCycleTimesButton( bestEstimate, bestMedianCycleTime ); },
 			style: {
 				'background-color': '#61257a',
 				'border-color': '#61257a'
@@ -426,22 +426,22 @@ Ext.define('CustomApp', {
 	},
 	
 	// Determine the ideal cycle time for each estimate and draw lines on the chart.
-	onProjectTargetCycleTimesButton:function( bestEstimate, bestMedianCycleTime ) {
+	onProjectIdealCycleTimesButton:function( bestEstimate, bestMedianCycleTime ) {
 		var chartData = boxPlotChart.getChartData();
-		var estimateTargets = {};
+		var estimateIdeals = {};
 		
 		// Create a line showing the ideal cycle time for each estimate
 		var greyColor = 9;
 		var boxplotData = chartData.series[0].data.slice(0).reverse();
 		_.each( boxplotData, function( boxplot ) {
 			var diff = boxplot.estimate / bestEstimate;
-			var target = bestMedianCycleTime * diff;
+			var ideal = bestMedianCycleTime * diff;
 			
-			estimateTargets[ boxplot.estimate ] = target;
+			estimateIdeals[ boxplot.estimate ] = ideal;
 			
 			var newSeries = {};
 			newSeries.type = 'line';
-			newSeries.name = 'Target Cycle Time for ' + boxplot.estimate + 's';
+			newSeries.name = 'Ideal Cycle Time for ' + boxplot.estimate + 's';
 			newSeries.lineWidth = 2;
 			newSeries.marker = {};
 			newSeries.marker.enabled = false;
@@ -452,12 +452,12 @@ Ext.define('CustomApp', {
 			// NOTE: Avoid hex letters to make it simpler and not be too light
 			greyColor = greyColor - ( 9 / boxplotData.length );
 			
-			// The data is an array of the target, one for each estimate
+			// The data is an array of the ideal, one for each estimate
 			var dataArray = [];
 			for( i = 0; i < boxplotData.length; i++ ){
 				dataArray.push( {
 					x: i,
-					y: target
+					y: ideal
 				});
 			}
 			newSeries.data = dataArray;
@@ -478,7 +478,7 @@ Ext.define('CustomApp', {
 		
 		app.add( {
 			xtype: 'label',
-			html: 'Taking these target cycle times, let\'s apply them back to our individual story cycle times to see if there are ways to better estimate your work.<br/><br/>',
+			html: 'Taking these ideal cycle times, let\'s apply them back to our individual story cycle times to see if there are ways to better estimate your work.<br/><br/>',
 			style: {
 				'font-size': '15px'
 			}
@@ -487,7 +487,7 @@ Ext.define('CustomApp', {
 		app.add( {
 			xtype: 'rallybutton',
 			text: 'Identify Opportunities for Improvement',
-			handler: function(){ app.onIdentifyImprovements( estimateTargets ); },
+			handler: function(){ app.onIdentifyImprovements( estimateIdeals ); },
 			style: {
 				'background-color': '#61257a',
 				'border-color': '#61257a'
@@ -496,7 +496,7 @@ Ext.define('CustomApp', {
 	},
 	
 	// Create bands for min and max cycle times per estimate, and identify the top 5 stories out of the bands
-	onIdentifyImprovements:function( estimateTargets ) {
+	onIdentifyImprovements:function( estimateIdeals ) {
 		// Remove any existing components
 		while( app.down( '*' ) ) {
 			app.down( '*' ).destroy();
@@ -505,19 +505,19 @@ Ext.define('CustomApp', {
 		// Create lookup for estimate by cycle time
 		var minEstimateSeriesData = [];
 		var maxEstimateSeriesData = [];
-		_.keys( estimateTargets ).forEach( function( estimate, index ) {
+		_.keys( estimateIdeals ).forEach( function( estimate, index ) {
 			var prevDiff = null;
 			// If we're on the first estimate, there's no prior
 			if( minEstimateSeriesData.length !== 0 ) {
-				var priorEstimate = _.keys( estimateTargets )[ index - 1 ];
-				prevDiff = ( estimateTargets[ estimate ] - estimateTargets[ priorEstimate ] ) * ( priorEstimate / estimate );
+				var priorEstimate = _.keys( estimateIdeals )[ index - 1 ];
+				prevDiff = ( estimateIdeals[ estimate ] - estimateIdeals[ priorEstimate ] ) * ( priorEstimate / estimate );
 			}
 			
 			var nextDiff = null;
 			// If we're on the last estimate, there's no next
-			if( maxEstimateSeriesData.length != estimateTargets.length - 1 ) {
-				var nextEstimate = _.keys( estimateTargets )[ index + 1 ];
-				nextDiff = ( estimateTargets[ nextEstimate ] - estimateTargets[ estimate ] ) * ( 1 - ( estimate / nextEstimate ) );
+			if( maxEstimateSeriesData.length != estimateIdeals.length - 1 ) {
+				var nextEstimate = _.keys( estimateIdeals )[ index + 1 ];
+				nextDiff = ( estimateIdeals[ nextEstimate ] - estimateIdeals[ estimate ] ) * ( 1 - ( estimate / nextEstimate ) );
 			}
 			
 			if( !prevDiff && !nextDiff ) {
@@ -528,23 +528,23 @@ Ext.define('CustomApp', {
 				nextDiff = prevDiff;
 			}
 			
-			var minTargetCycleTime = estimateTargets[ estimate ] - prevDiff;
+			var minIdealCycleTime = estimateIdeals[ estimate ] - prevDiff;
 			minEstimateSeriesData.push( {
 				x: parseInt( estimate, 10 ),
-				y: minTargetCycleTime,
-				tooltip: 'Minimum Target Cycle Time: ' + minTargetCycleTime
+				y: minIdealCycleTime,
+				tooltip: 'Minimum Ideal Cycle Time: ' + minIdealCycleTime
 			});
-			var maxTargetCycleTime = estimateTargets[ estimate ] + nextDiff;
+			var maxIdealCycleTime = estimateIdeals[ estimate ] + nextDiff;
 			maxEstimateSeriesData.push( {
 				x: parseInt( estimate, 10 ),
-				y: maxTargetCycleTime,
-				tooltip: 'Maximum Target Cycle Time: ' + maxTargetCycleTime
+				y: maxIdealCycleTime,
+				tooltip: 'Maximum Ideal Cycle Time: ' + maxIdealCycleTime
 			});
 		});
 		
 		var minCycleTimes = {
 			type: 'line',
-			name: 'Min Target Cycle Times',
+			name: 'Min Ideal Cycle Times',
 			data: minEstimateSeriesData,
 			lineWidth: 2,
 			marker: {
@@ -555,7 +555,7 @@ Ext.define('CustomApp', {
 		
 		var maxCycleTimes = {
 			type: 'line',
-			name: 'Max Target Cycle Times',
+			name: 'Max Ideal Cycle Times',
 			data: maxEstimateSeriesData,
 			lineWidth: 2,
 			marker: {
@@ -567,38 +567,40 @@ Ext.define('CustomApp', {
 		chartData = scatterChart.getChartData();
 		
 		_.each( chartData.series[0].data, function( scatterPoint ) {
-			var target;
+			var ideal;
 			var maxEstimateSeriesIndex = _.findKey( maxEstimateSeriesData, function(v) { return v.y > scatterPoint.y; });
 			if ( maxEstimateSeriesIndex !== undefined ) {
-				target = maxEstimateSeriesData[ maxEstimateSeriesIndex ].x;
+				ideal = maxEstimateSeriesData[ maxEstimateSeriesIndex ].x;
 			} else {
-				target = undefined;
+				ideal = undefined;
 			}
 			
-			if( target === undefined ) {
+			if( ideal === undefined ) {
 				// Set an arbitrarily high score for stories whose estimates are above the current team's scale, as we don't know how bad they are.
 				// Subtract the point's estimate as smaller estimates that are off the scale are worst
 				scatterPoint.issueScore = 1000 - scatterPoint.x;
+				// Include the cycle time in the math to break ties
+				scatterPoint.issueScore += ( scatterPoint.y / 1000 );
 			} else {
-				scatterPoint.issueScore = Math.abs( scatterPoint.x - target ) ;
-			}
-			// Include the cycle time in the math to break ties
-			var cycleTimeScore = ( Math.abs( maxEstimateSeriesData[ maxEstimateSeriesIndex ].y - scatterPoint.y ) / 1000 );
-			if ( scatterPoint.x - target >= 0 ) {
-				scatterPoint.issueScore += cycleTimeScore;
-			} else {
-				scatterPoint.issueScore -= cycleTimeScore;
+				scatterPoint.issueScore = Math.abs( scatterPoint.x - ideal ) ;
+				// Include the cycle time in the math to break ties
+				var cycleTimeScore = ( Math.abs( maxEstimateSeriesData[ maxEstimateSeriesIndex ].y - scatterPoint.y ) / 1000 );
+				if ( scatterPoint.x - ideal >= 0 ) {
+					scatterPoint.issueScore += cycleTimeScore;
+				} else {
+					scatterPoint.issueScore -= cycleTimeScore;
+				}
 			}
 			
-			scatterPoint.tooltip += '<br/>Estimate: ' + scatterPoint.x + '<br/>Target Estimate: ';
-			if( target !== undefined ) {
-				scatterPoint.tooltip += target;
+			scatterPoint.tooltip += '<br/>Estimate: ' + scatterPoint.x + '<br/>Ideal Estimate: ';
+			if( ideal !== undefined ) {
+				scatterPoint.tooltip += ideal;
 			} else {
 				scatterPoint.tooltip += '>' + maxEstimateSeriesData[ maxEstimateSeriesData.length - 1 ].x;
 			}
-			scatterPoint.target = target;
+			scatterPoint.ideal = ideal;
 			
-			if( scatterPoint.x != target ) {
+			if( scatterPoint.x != ideal ) {
 				scatterPoint.color = '#61257a';
 			} else {
 				scatterPoint.color = '#d30606';
@@ -620,11 +622,11 @@ Ext.define('CustomApp', {
 					scatterPoint.marker.symbol = 'diamond';
 					scatterPoint.color = '#3300ff';
 					
-					var targetString;
-					if( scatterPoint.target !== undefined ) {
-						targetString = scatterPoint.target.toString();
+					var idealString;
+					if( scatterPoint.ideal !== undefined ) {
+						idealString = scatterPoint.ideal.toString();
 					} else {
-						targetString = '>' + maxEstimateSeriesData[ maxEstimateSeriesData.length - 1 ].x;
+						idealString = '>' + maxEstimateSeriesData[ maxEstimateSeriesData.length - 1 ].x;
 					}
 					
 					worstIssues.push( [ 
@@ -637,7 +639,7 @@ Ext.define('CustomApp', {
 						scatterPoint.name,
 						scatterPoint.y,
 						scatterPoint.x,
-						targetString
+						idealString
 					]);
 				}
 			}
@@ -650,7 +652,7 @@ Ext.define('CustomApp', {
 				{ name: 'name', type: 'string' },
 				{ name: 'cycleTime', type: 'float' },
 				{ name: 'estimate', type: 'integer' },
-				{ name: 'targetEstimate', type: 'string' }
+				{ name: 'idealEstimate', type: 'string' }
 			],
 			data: worstIssues
 		});
@@ -700,8 +702,8 @@ Ext.define('CustomApp', {
 					flex: true
 				},
 				{
-					text: 'Target Estimate',
-					dataIndex: 'targetEstimate',
+					text: 'Ideal Estimate',
+					dataIndex: 'idealEstimate',
 					flex: true
 				}
 			]

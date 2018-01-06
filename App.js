@@ -15,11 +15,8 @@ Ext.define('CustomApp', {
 	
 	// Collect the stories that were accepted within the timebox
 	fetchWorkItems:function( scope ){
-		// Remove any existing components
-		while( app.down( '*' ) ) {
-			app.down( '*' ).destroy();
-		}
-		
+		app.clearApp( true, false );
+
 		// Show loading message
 		app._myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Calculating...Please wait."});
 		app._myMask.show();
@@ -126,10 +123,7 @@ Ext.define('CustomApp', {
 	},
 	
 	drawScatterChart:function( seriesData, estimateTimes ) {
-		// Remove any existing components
-		while( app.down( '*' ) ) {
-			app.down( '*' ).destroy();
-		}
+		app.clearApp( true, false );
 		
 		scatterChart = app.add({
 			xtype: 'rallychart',
@@ -276,10 +270,7 @@ Ext.define('CustomApp', {
 			values.unshift( boxplotPoint );
 		}, app );
 		
-		// Remove any existing components
-		while( app.down( '*' ) ) {
-			app.down( '*' ).destroy();
-		}
+		app.clearApp( false, false );
 		
 		boxPlotChart = app.add({
 			xtype: 'rallychart',
@@ -398,12 +389,7 @@ Ext.define('CustomApp', {
 			chartData: chartData
 		});
 		
-		while( app.down( 'label' ) ) {
-			app.down( 'label' ).destroy();
-		}
-		while( app.down( 'button' ) ) {
-			app.down( 'button' ).destroy();
-		}
+		app.clearApp( false, true );
 		
 		app.add( {
 			xtype: 'label',
@@ -469,12 +455,7 @@ Ext.define('CustomApp', {
 			chartData: chartData
 		});
 	
-		while( app.down( 'label' ) ) {
-			app.down( 'label' ).destroy();
-		}
-		while( app.down( 'button' ) ) {
-			app.down( 'button' ).destroy();
-		}
+		app.clearApp( false, true );
 		
 		app.add( {
 			xtype: 'label',
@@ -497,10 +478,7 @@ Ext.define('CustomApp', {
 	
 	// Create bands for min and max cycle times per estimate, and identify the top 5 stories out of the bands
 	onIdentifyImprovements:function( estimateIdeals ) {
-		// Remove any existing components
-		while( app.down( '*' ) ) {
-			app.down( '*' ).destroy();
-		}
+		app.clearApp( false, false );
 		
 		// Create lookup for estimate by cycle time
 		var minEstimateSeriesData = [];
@@ -729,15 +707,7 @@ Ext.define('CustomApp', {
 	},
 	
 	onBrainstormActions:function(){
-		while( app.down( 'label' ) ) {
-			app.down( 'label' ).destroy();
-		}
-		while( app.down( 'button' ) ) {
-			app.down( 'button' ).destroy();
-		}
-		while( app.down( 'rallychart' ) ) {
-			app.down( 'rallychart' ).destroy();
-		}
+		app.clearApp( false, false );
 		
 		app.add( {
 			xtype: 'label',
@@ -791,5 +761,26 @@ Ext.define('CustomApp', {
 			} 
 		}
 		return days;
+	},
+	
+	clearApp:function( keepHeaders, keepCharts ) {
+		while( app.down( 'label' ) ) {
+			app.down( 'label' ).destroy();
+		}
+		while( app.down( 'button' ) ) {
+			app.down( 'button' ).destroy();
+		}
+		
+		if( !keepCharts ) {
+			while( app.down( 'rallychart' ) ) {
+				app.down( 'rallychart' ).destroy();
+			}
+		}
+		
+		if( !keepHeaders ) {
+			while( app.down( 'container rallyreleasecombobox' ) ) {
+				app.down( 'container rallyreleasecombobox' ).destroy();
+			}
+		}
 	}
 });

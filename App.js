@@ -3,48 +3,140 @@ Ext.define('CustomApp', {
 	scopeType: 'release',
 	OUTLIER_THRESHOLD: 1.5,
 	app: null,
+	filterContainer: null,
+	contentContainer: null,
 	scatterChart: null,
 	boxPlotChart: null,
 	
+	//TODO - Make Stateful https://help.rallydev.com/apps/2.1/doc/#!/guide/state
+	launch: function() {
+		app = this;
+		filterContainer = app.down( 'container' );
+		contentContainer = app.add( {
+			xype: 'box',
+			border: 0
+		});
+		app.callParent( arguments );
+	},
+	
 	// If the scope changes, such as the release filter, update ourselves
 	onScopeChange: function( scope ) {
-		app = this;
 		app.callParent( arguments );
-		app.fetchWorkItems( scope );
+		app.initializeFilters();
+	},
+	
+	// Set up filters, if needed
+	initializeFilters:function(){
+		app.hideHeader( false );
+		var scope = null;
+		if( app.getContext().getTimeboxScope().record ) {
+			scope = app.getContext().getTimeboxScope().record.data;
+		}
+		
+		// Show start and end data filters if we're not on a release-filtered page
+		// The filter container will be automatically added by the app if we're not on a release-filtered page
+		if ( filterContainer ) {
+			var fromDateFieldId = 'fromDateFilter';
+			var toDateFieldId = 'toDateFilter';
+			var beginButtonId = 'beginButton';
+		
+			var fromDateField = filterContainer.down( '#' + fromDateFieldId );
+			var toDateField = filterContainer.down( '#' + toDateFieldId );
+			var beginButton = filterContainer.down( '#' + beginButtonId );
+			
+			if( !toDateField ) {
+				filterContainer.add( {
+					xtype: 'label',
+					html: '--or--<br/>'
+				} );
+			
+				fromDateField = filterContainer.add( {
+					xtype: 'datefield',
+					anchor: '100%',
+					fieldLabel: 'From',
+					itemId: fromDateFieldId,
+					name: 'from_date'
+				} );
+			
+				toDateField = filterContainer.add( {
+					xtype: 'datefield',
+					anchor: '100%',
+					fieldLabel: 'To',
+					itemId: toDateFieldId,
+					name: 'to_date',
+					vale: new Date() // default to today
+				} );
+				
+				filterContainer.add( {
+					xtype: 'rallybutton',
+					itemId: beginButtonId,
+					text: 'Begin!',
+					handler: function(){ app.beginButtonHandler( fromDateField, toDateField ); },
+					style: {
+						'background-color': '#61257a',
+						'border-color': '#61257a'
+					}
+				} );
+			}
+		} else {
+			app.fetchWorkItems( scope.ReleaseStartDate, scope.ReleaseDate );
+		}
+	},
+	
+	// Use the from date, to date, and scope to determine the time range for the chart
+	beginButtonHandler:function( fromDateField, toDateField ) {
+		var scope = null;
+		if( app.getContext().getTimeboxScope().record ) {
+			scope = app.getContext().getTimeboxScope().record.data;
+		}
+		
+		var fromDate = fromDateField.value;
+		if( !fromDate && scope ) {
+			fromDate = scope.ReleaseStartDate;
+		}
+	
+		var toDate = toDateField.value;
+		if( !toDate && scope ) {
+			toDate = scope.ReleaseDate;
+		}
+		
+		// TODO: This is always passing the first release chosen, even after release change
+		app.fetchWorkItems( fromDate, toDate );
 	},
 	
 	// Collect the stories that were accepted within the timebox
-	fetchWorkItems:function( scope ){
-		app.clearApp( true, false );
-
+	fetchWorkItems:function( startDate, endDate ){
 		// Show loading message
-		app._myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Calculating...Please wait."});
+		app._myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Calculating... Please wait."});
 		app._myMask.show();
 	
 		// Look for stories that were started and accepted within the release timebox	
 		var filters = [];
-		var startDate = scope.record.raw.ReleaseStartDate;
-		var endDate = scope.record.raw.ReleaseDate;
-		var startDateFilter = Ext.create('Rally.data.wsapi.Filter', {
-			property : 'InProgressDate',
-			operator: '>=',
-			value: startDate
-		});
 		
-		var endDateFilter = Ext.create('Rally.data.wsapi.Filter', {
-			property : 'AcceptedDate',
-			operator: '<=',
-			value: endDate
-		});
+		if( startDate ) {
+			var startDateFilter = Ext.create('Rally.data.wsapi.Filter', {
+				property : 'InProgressDate',
+				operator: '>=',
+				value: startDate
+			});
+			filters.push( startDateFilter );
+		}
+		
+		if( endDate ) {
+			var endDateFilter = Ext.create('Rally.data.wsapi.Filter', {
+				property : 'AcceptedDate',
+				operator: '<=',
+				value: endDate
+			});
+			filters.push( endDateFilter );
+
+		}
 		
 		var estimateFilter = Ext.create('Rally.data.wsapi.Filter', {
 			property : 'PlanEstimate',
 			operator: '>',
 			value: '0'
 		});
-		
-		filters.push( startDateFilter );
-		filters.push( endDateFilter );
 		filters.push( estimateFilter );
 
 		var dataScope = app.getContext().getDataContext();
@@ -123,9 +215,9 @@ Ext.define('CustomApp', {
 	},
 	
 	drawScatterChart:function( seriesData, estimateTimes ) {
-		app.clearApp( true, false );
+		app.clearContent( false );
 		
-		scatterChart = app.add({
+		scatterChart = contentContainer.add({
 			xtype: 'rallychart',
 			storeConfig: {},
 			chartConfig: {
@@ -172,7 +264,7 @@ Ext.define('CustomApp', {
 		var colors = [ "#61257a"];
 		scatterChart.setChartColors( colors );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: 'This graph shows your completed stories\' cycle times by estimate.*<br/>Click below to see how you can improve your estimates to be more consistent and predictable.<br/><br/>',
 			style: {
@@ -180,7 +272,7 @@ Ext.define('CustomApp', {
 			}
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'rallybutton',
 			text: 'Calibrate Estimates',
 			id: 'calibrationbutton',
@@ -191,7 +283,7 @@ Ext.define('CustomApp', {
 			}
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: '<a href="https://help.rallydev.com/sizing-and-estimates-overview">Learn about agile estimation</a>',
 			style: {
@@ -199,7 +291,7 @@ Ext.define('CustomApp', {
 			}
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: '<br/><br/>* Only stories marked in-progress and accepted in this timebox are tracked. Stories with no estimate, an estimate of 0, or a cycle time of 0.25 days or less are ignored.',
 			style: {
@@ -270,9 +362,10 @@ Ext.define('CustomApp', {
 			values.unshift( boxplotPoint );
 		}, app );
 		
-		app.clearApp( false, false );
+		app.hideHeader( true );
+		app.clearContent( false );
 		
-		boxPlotChart = app.add({
+		boxPlotChart = contentContainer.add({
 			xtype: 'rallychart',
 			storeConfig: {},
 			chartConfig: {
@@ -333,7 +426,7 @@ Ext.define('CustomApp', {
 		var colors = [ "#61257a", "#61257a" ];
 		boxPlotChart.setChartColors( colors );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: 'Your data, displayed as a box plot, will help us identify which stories could benefit most from further analysis.<br/>First, let\'s find where you are already being consistent. We will use this as an anchor estimate to then form a basis for your other relative estimates.<br/><br/>',
 			style: {
@@ -341,7 +434,7 @@ Ext.define('CustomApp', {
 			}
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'rallybutton',
 			text: 'Identify Anchor Estimate',
 			handler: function(){ app.onIdentifyAnchorButton( estimateTimes ); },
@@ -351,7 +444,7 @@ Ext.define('CustomApp', {
 			}
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: '<a href="https://www.khanacademy.org/math/probability/data-distributions-a1/box--whisker-plots-a1/v/reading-box-and-whisker-plots">Learn how to read box plots</a>',
 			style: {
@@ -389,9 +482,9 @@ Ext.define('CustomApp', {
 			chartData: chartData
 		});
 		
-		app.clearApp( false, true );
+		app.clearContent( true );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: 'Stories with an estimate of ' + bestEstimate + ' had the best balance of a tight interquartile range and a large number of stories. Let\'s use this to set ideal relative cycle times for our estimates.<br/><br/>',
 			style: {
@@ -399,7 +492,7 @@ Ext.define('CustomApp', {
 			}
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'rallybutton',
 			text: 'Project Ideal Cycle Times',
 			handler: function(){ app.onProjectIdealCycleTimesButton( bestEstimate, bestMedianCycleTime ); },
@@ -455,9 +548,9 @@ Ext.define('CustomApp', {
 			chartData: chartData
 		});
 	
-		app.clearApp( false, true );
+		app.clearContent( true );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: 'Taking these ideal cycle times, let\'s apply them back to our individual story cycle times to see if there are ways to better estimate your work.<br/><br/>',
 			style: {
@@ -465,7 +558,7 @@ Ext.define('CustomApp', {
 			}
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'rallybutton',
 			text: 'Identify Opportunities for Improvement',
 			handler: function(){ app.onIdentifyImprovements( estimateIdeals ); },
@@ -478,7 +571,7 @@ Ext.define('CustomApp', {
 	
 	// Create bands for min and max cycle times per estimate, and identify the top 5 stories out of the bands
 	onIdentifyImprovements:function( estimateIdeals ) {
-		app.clearApp( false, false );
+		app.clearContent( false );
 		
 		// Create lookup for estimate by cycle time
 		var minEstimateSeriesData = [];
@@ -639,9 +732,9 @@ Ext.define('CustomApp', {
 		chartData.series.unshift( minCycleTimes );
 		
 		// Reshow our scatter plot
-		app.add( Ext.merge( scatterChart.initialConfig, chartData ) );
+		contentContainer.add( Ext.merge( scatterChart.initialConfig, chartData ) );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: 'On the scatter plot of cycle times by estimate, we now have lines to note the minimum and maximum cycle times for each estimate. The stories that need the most readjustment have been marked in blue diamonds, and listed below:<br/><br/>',
 			style: {
@@ -649,7 +742,7 @@ Ext.define('CustomApp', {
 			}
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'rallygrid',
 			showPagingToolbar: false,
 			showRowActionsColumn: false,
@@ -687,7 +780,7 @@ Ext.define('CustomApp', {
 			]
 		});
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: '<br/>',
 			style: {
@@ -695,7 +788,7 @@ Ext.define('CustomApp', {
 			}
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'rallybutton',
 			text: 'Brainstorm Actions to Realign Estimates',
 			handler: function(){ app.onBrainstormActions(); },
@@ -707,9 +800,9 @@ Ext.define('CustomApp', {
 	},
 	
 	onBrainstormActions:function(){
-		app.clearApp( false, false );
+		app.clearContent( false );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: 'What actions could you take to better estimate stories like these? Some questions to spark discussion:<br/><ul><li>What, had you known it sooner, would have changed your estimate? How could you have known sooner?</li><li>Could this work have been broken down into smaller stories?</li><li>What risks manifested during this work? Could they have been avoided or mitigated?</li><li>Did emergency work cause you to put this work on hold? If so, was it the right decision to change priorities?</li><li>Are there patterns or similarities to this work that you could watch for in future estimations?</li></ul>Please enter actions you could take to better estimate stories like these in the future.<br/><br/>NOTE: These actions are not currently saved, so make a copy for later if you\'d like.',
 			style: {
@@ -717,7 +810,7 @@ Ext.define('CustomApp', {
 			}
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'textareafield',
 			grow: true,
 			name: 'actionItems',
@@ -725,7 +818,7 @@ Ext.define('CustomApp', {
 			width: '100%'
 		} );
 		
-		app.add( {
+		contentContainer.add( {
 			xtype: 'label',
 			html: '<br/>Congrats in advance for committing to these action items and making your estimates more consistent and predictable. Hopefully you\'ll check back after they\'re implemented to see how your cycle times have changed and identify your next actions for continual improvement.',
 			style: {
@@ -736,9 +829,9 @@ Ext.define('CustomApp', {
 	
 	showNoDataBox:function(){
 		app._myMask.hide();
-		app.add({
+		contentContainer.add({
 			xtype: 'label',
-			text: 'There is no data. Check if there are stories with PlanEstimate assigned to your selected timebox which were marked in-progress and accepted within the timebox.'
+			text: 'There is no data. There needs to be stories with PlanEstimate which were marked in-progress and accepted within the timebox.'
 		});
 	},
 	
@@ -763,23 +856,23 @@ Ext.define('CustomApp', {
 		return days;
 	},
 	
-	clearApp:function( keepHeaders, keepCharts ) {
-		while( app.down( 'label' ) ) {
-			app.down( 'label' ).destroy();
+	hideHeader:function( hiddenValue ) {
+		if( filterContainer ) {
+			filterContainer.setVisible( !hiddenValue );
 		}
-		while( app.down( 'button' ) ) {
-			app.down( 'button' ).destroy();
+	},
+	
+	clearContent:function( keepCharts ) {
+		while( contentContainer.down( 'label' ) ) {
+			contentContainer.down( 'label' ).destroy();
+		}
+		while( contentContainer.down( 'button' ) ) {
+			contentContainer.down( 'button' ).destroy();
 		}
 		
 		if( !keepCharts ) {
-			while( app.down( 'rallychart' ) ) {
-				app.down( 'rallychart' ).destroy();
-			}
-		}
-		
-		if( !keepHeaders ) {
-			while( app.down( 'container rallyreleasecombobox' ) ) {
-				app.down( 'container rallyreleasecombobox' ).destroy();
+			while( contentContainer.down( 'rallychart' ) ) {
+				contentContainer.down( 'rallychart' ).destroy();
 			}
 		}
 	}

@@ -473,6 +473,8 @@ Ext.define('CustomApp', {
 			}
 		});
 		
+		//TODO: If all the scores are "Infinity, a RTE happens after this when color is set on a null object
+		
 		var chartData = boxPlotChart.getChartData();
 		var chartConfig = boxPlotChart.getChartConfig();
 		

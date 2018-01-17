@@ -31,13 +31,16 @@
 	// If the scope changes, such as the release filter, update ourselves
 	onScopeChange: function( scope ) {
 		app.callParent( arguments );
-		app.initializeFilters( scope );
+		app.initializeFilters();
 	},
 	
 	// Set up filters, if needed
-	initializeFilters:function( scope ){
+	initializeFilters:function(){
 		app.hideHeader( false );
-		console.log( scope.record.raw.ReleaseDate );
+		var scope = null;
+		if( app.getContext().getTimeboxScope().record ) {
+			scope = app.getContext().getTimeboxScope().record.data;
+		}
 		
 		// Show start and end data filters if we're not on a release-filtered page
 		// The filter container will be automatically added by the app if we're not on a release-filtered page
@@ -46,11 +49,11 @@
 			var toDateFieldId = 'toDateFilter';
 			var beginButtonId = 'beginButton';
 		
-			var fromDateField = document.getElementById( fromDateFieldId );
-			var toDateField = document.getElementById( toDateFieldId );
-			var beginButton = document.getElementById( beginButtonId );
+			var fromDateField = filterContainer.down( '#' + fromDateFieldId );
+			var toDateField = filterContainer.down( '#' + toDateFieldId );
+			var beginButton = filterContainer.down( '#' + beginButtonId );
 			
-			if( !beginButton ) {
+			if( !toDateField ) {
 				filterContainer.add( {
 					xtype: 'label',
 					html: '--or--<br/>'
@@ -60,7 +63,7 @@
 					xtype: 'datefield',
 					anchor: '100%',
 					fieldLabel: 'From',
-					id: fromDateFieldId,
+					itemId: fromDateFieldId,
 					name: 'from_date'
 				} );
 			
@@ -68,40 +71,42 @@
 					xtype: 'datefield',
 					anchor: '100%',
 					fieldLabel: 'To',
-					id: toDateFieldId,
+					itemId: toDateFieldId,
 					name: 'to_date',
 					vale: new Date() // default to today
 				} );
-		
+				
 				filterContainer.add( {
 					xtype: 'rallybutton',
-					id: beginButtonId,
+					itemId: beginButtonId,
 					text: 'Begin!',
-					handler: function(){ app.beginButtonHandler( fromDateField, toDateField, scope ); },
+					handler: function(){ app.beginButtonHandler( fromDateField, toDateField ); },
 					style: {
 						'background-color': '#61257a',
 						'border-color': '#61257a'
 					}
 				} );
 			}
-		/*	} else {
-				var newButtonHandler = {
-			}*/
 		} else {
-			app.fetchWorkItems( scope.record.raw.ReleaseStartDate, scope.record.raw.ReleaseDate );
+			app.fetchWorkItems( scope.ReleaseStartDate, scope.ReleaseDate );
 		}
 	},
 	
 	// Use the from date, to date, and scope to determine the time range for the chart
-	beginButtonHandler:function( fromDateField, toDateField, scope ) {
+	beginButtonHandler:function( fromDateField, toDateField ) {
+		var scope = null;
+		if( app.getContext().getTimeboxScope().record ) {
+			scope = app.getContext().getTimeboxScope().record.data;
+		}
+		
 		var fromDate = fromDateField.value;
-		if( !fromDate ) {
-			fromDate = scope.record.raw.ReleaseStartDate;
+		if( !fromDate && scope ) {
+			fromDate = scope.ReleaseStartDate;
 		}
 	
 		var toDate = toDateField.value;
-		if( !toDate ) {
-			toDate = scope.record.raw.ReleaseDate;
+		if( !toDate && scope ) {
+			toDate = scope.ReleaseDate;
 		}
 		
 		// TODO: This is always passing the first release chosen, even after release change
@@ -110,8 +115,6 @@
 	
 	// Collect the stories that were accepted within the timebox
 	fetchWorkItems:function( startDate, endDate ){
-		console.log( 'Fetching items from ' + startDate + ' to ' + endDate );
-		
 		// Show loading message
 		app._myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Calculating... Please wait."});
 		app._myMask.show();

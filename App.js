@@ -28,10 +28,6 @@ Ext.define('CustomApp', {
 	// Set up filters, if needed
 	initializeFilters:function(){
 		app.hideHeader( false );
-		var scope = null;
-		if( app.getContext().getTimeboxScope().record ) {
-			scope = app.getContext().getTimeboxScope().record.data;
-		}
 		
 		// Show start and end data filters if we're not on a release-filtered page
 		// The filter container will be automatically added by the app if we're not on a release-filtered page
@@ -79,28 +75,30 @@ Ext.define('CustomApp', {
 				} );
 			}
 		} else {
-			app.fetchWorkItems( scope.ReleaseStartDate, scope.ReleaseDate );
+			var scope = app.getContext().getTimeboxScope();
+			if( scope ) {
+				var record = scope.getRecord();
+				app.fetchWorkItems( record.get('ReleaseStartDate'), record.get('ReleaseDate') );
+			} else {
+				app.fetchWorkItems( null, null );
+			}
 		}
 	},
 	
 	// Use the from date, to date, and scope to determine the time range for the chart
 	beginButtonHandler:function( fromDateField, toDateField ) {
-		var scope = null;
-		if( app.getContext().getTimeboxScope().record ) {
-			scope = app.getContext().getTimeboxScope().record.data;
-		}
+		var scope = app.getContext().getTimeboxScope();
 		
 		var fromDate = fromDateField.value;
 		if( !fromDate && scope ) {
-			fromDate = scope.ReleaseStartDate;
+			fromDate = scope.getRecord().get('ReleaseStartDate');
 		}
 	
 		var toDate = toDateField.value;
 		if( !toDate && scope ) {
-			toDate = scope.ReleaseDate;
+			toDate = scope.getRecord().get('ReleaseDate');
 		}
 		
-		// TODO: This is always passing the first release chosen, even after release change
 		app.fetchWorkItems( fromDate, toDate );
 	},
 	
@@ -304,6 +302,7 @@ Ext.define('CustomApp', {
 	
 	// Create a box plot showing the distribution of cycle times for each estimate
 	onCalibrateButton:function( estimateTimes ){
+		//TODO: Handle estimates of .5
 		var boxplots = [];
 		var outliers = [];
 		
@@ -473,7 +472,7 @@ Ext.define('CustomApp', {
 			}
 		});
 		
-		//TODO: If all the scores are "Infinity, a RTE happens after this when color is set on a null object
+		//TODO: If all the scores are Infinity, a RTE happens after this when color is set on a null object
 		
 		var chartData = boxPlotChart.getChartData();
 		var chartConfig = boxPlotChart.getChartConfig();

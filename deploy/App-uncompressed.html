@@ -210,7 +210,7 @@
 					_.each( records, function( record ) {
 						if ( record.data.InProgressDate !== null && record.data.AcceptedDate !== null ) {
 							estimateEntry = {};
-							estimateEntry.estimate = record.data.PlanEstimate;
+							estimateEntry.estimate = Number( record.data.PlanEstimate );
 							estimateEntry.id = record.data.FormattedID;
 							estimateEntry.name = record.data.Name;
 							estimateEntry.ref = record.data._ref;
@@ -278,7 +278,7 @@
 					title: {
 						text: 'Plan Estimate'
 					},
-					tickInterval: 1,
+					tickInterval: null,
 					startOnTick: true,
 					endOnTick: true,
 					showLastLabel: true,
@@ -288,7 +288,7 @@
 					title: {
 						text: 'Cycle Time (workdays)'
 					},
-					tickInterval: 1,
+					tickInterval: null,
 					min: 0,
 					gridLineWidth: 0
 				},
@@ -350,12 +350,13 @@
 	
 	// Create a box plot showing the distribution of cycle times for each estimate
 	onCalibrateButton:function( estimateTimes ){
-		//TODO: Handle estimates of .5
 		var boxplots = [];
 		var outliers = [];
 		
-		_.each( estimateTimes, function( values ) {
-			values = values.sort(function(a, b){ return a.cycleTime - b.cycleTime; } );
+		// Sort the estimate times so that estimates of .5 don't appear at the end of the x-axis
+		var sortedKeys = _.keys( estimateTimes ).map( Number ).sort( function( a, b ){ return a - b; });
+		_.each( sortedKeys, function( key ) {
+			var values = estimateTimes[ key ].sort(function(a, b){ return a.cycleTime - b.cycleTime; } );
 
 			// Find our quartiles. Logic from http://thiruvikramangovindarajan.blogspot.com/2014/10/calculate-quartile-q1-q3-and-median-q2.html
 			var Q1 = 0;
@@ -404,7 +405,7 @@
 			boxplotPoint.estimate = values[0].estimate;
 			
 			boxplots.push( boxplotPoint );
-			
+
 			// Save summary stats back into the Estimate Values for later access
 			values.unshift( boxplotPoint );
 		}, app );
@@ -465,7 +466,7 @@
 						}
 					} 
 				],
-				categories: Object.keys( estimateTimes )
+				categories: sortedKeys
 			}
 		});
 		
@@ -625,18 +626,20 @@
 		// Create lookup for estimate by cycle time
 		var minEstimateSeriesData = [];
 		var maxEstimateSeriesData = [];
-		_.keys( estimateIdeals ).forEach( function( estimate, index ) {
+		// Sort the estimate ideals so that estimates of .5 don't appear at the end of the x-axis
+		var sortedKeys = _.keys( estimateIdeals ).map( Number ).sort( function( a, b ){ return a - b; });
+		sortedKeys.forEach( function( estimate, index ) {
 			var prevDiff = null;
 			// If we're on the first estimate, there's no prior
 			if( minEstimateSeriesData.length !== 0 ) {
-				var priorEstimate = _.keys( estimateIdeals )[ index - 1 ];
+				var priorEstimate = sortedKeys[ index - 1 ];
 				prevDiff = ( estimateIdeals[ estimate ] - estimateIdeals[ priorEstimate ] ) * ( priorEstimate / estimate );
 			}
 			
 			var nextDiff = null;
 			// If we're on the last estimate, there's no next
 			if( maxEstimateSeriesData.length != estimateIdeals.length - 1 ) {
-				var nextEstimate = _.keys( estimateIdeals )[ index + 1 ];
+				var nextEstimate = sortedKeys[ index + 1 ];
 				nextDiff = ( estimateIdeals[ nextEstimate ] - estimateIdeals[ estimate ] ) * ( 1 - ( estimate / nextEstimate ) );
 			}
 			

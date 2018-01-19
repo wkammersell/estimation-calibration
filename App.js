@@ -617,18 +617,20 @@ Ext.define('CustomApp', {
 		// Create lookup for estimate by cycle time
 		var minEstimateSeriesData = [];
 		var maxEstimateSeriesData = [];
-		_.keys( estimateIdeals ).forEach( function( estimate, index ) {
+		// Sort the estimate ideals so that estimates of .5 don't appear at the end of the x-axis
+		var sortedKeys = _.keys( estimateIdeals ).map( Number ).sort( function( a, b ){ return a - b; });
+		sortedKeys.forEach( function( estimate, index ) {
 			var prevDiff = null;
 			// If we're on the first estimate, there's no prior
 			if( minEstimateSeriesData.length !== 0 ) {
-				var priorEstimate = _.keys( estimateIdeals )[ index - 1 ];
+				var priorEstimate = sortedKeys[ index - 1 ];
 				prevDiff = ( estimateIdeals[ estimate ] - estimateIdeals[ priorEstimate ] ) * ( priorEstimate / estimate );
 			}
 			
 			var nextDiff = null;
 			// If we're on the last estimate, there's no next
 			if( maxEstimateSeriesData.length != estimateIdeals.length - 1 ) {
-				var nextEstimate = _.keys( estimateIdeals )[ index + 1 ];
+				var nextEstimate = sortedKeys[ index + 1 ];
 				nextDiff = ( estimateIdeals[ nextEstimate ] - estimateIdeals[ estimate ] ) * ( 1 - ( estimate / nextEstimate ) );
 			}
 			

@@ -201,7 +201,7 @@ Ext.define('CustomApp', {
 					_.each( records, function( record ) {
 						if ( record.data.InProgressDate !== null && record.data.AcceptedDate !== null ) {
 							estimateEntry = {};
-							estimateEntry.estimate = record.data.PlanEstimate;
+							estimateEntry.estimate = Number( record.data.PlanEstimate );
 							estimateEntry.id = record.data.FormattedID;
 							estimateEntry.name = record.data.Name;
 							estimateEntry.ref = record.data._ref;
@@ -269,7 +269,7 @@ Ext.define('CustomApp', {
 					title: {
 						text: 'Plan Estimate'
 					},
-					tickInterval: 1,
+					tickInterval: null,
 					startOnTick: true,
 					endOnTick: true,
 					showLastLabel: true,
@@ -279,7 +279,7 @@ Ext.define('CustomApp', {
 					title: {
 						text: 'Cycle Time (workdays)'
 					},
-					tickInterval: 1,
+					tickInterval: null,
 					min: 0,
 					gridLineWidth: 0
 				},
@@ -341,12 +341,13 @@ Ext.define('CustomApp', {
 	
 	// Create a box plot showing the distribution of cycle times for each estimate
 	onCalibrateButton:function( estimateTimes ){
-		//TODO: Handle estimates of .5
 		var boxplots = [];
 		var outliers = [];
 		
-		_.each( estimateTimes, function( values ) {
-			values = values.sort(function(a, b){ return a.cycleTime - b.cycleTime; } );
+		// Sort the estimate times so that estimates of .5 don't appear at the end of the x-axis
+		var sortedKeys = _.keys( estimateTimes ).map( Number ).sort( function( a, b ){ return a - b; });
+		_.each( sortedKeys, function( key ) {
+			var values = estimateTimes[ key ].sort(function(a, b){ return a.cycleTime - b.cycleTime; } );
 
 			// Find our quartiles. Logic from http://thiruvikramangovindarajan.blogspot.com/2014/10/calculate-quartile-q1-q3-and-median-q2.html
 			var Q1 = 0;
@@ -395,7 +396,7 @@ Ext.define('CustomApp', {
 			boxplotPoint.estimate = values[0].estimate;
 			
 			boxplots.push( boxplotPoint );
-			
+
 			// Save summary stats back into the Estimate Values for later access
 			values.unshift( boxplotPoint );
 		}, app );
@@ -456,7 +457,7 @@ Ext.define('CustomApp', {
 						}
 					} 
 				],
-				categories: Object.keys( estimateTimes )
+				categories: sortedKeys
 			}
 		});
 		

@@ -3,9 +3,9 @@ estimation-calibration
 
 ## Overview
 
-Has your Team had troubles consistently and predictably delivering work? Do estimates seem like a shot in the dark, having no bearing on how quickly a story is delivered? Do you need actionable data to help guide your Team to the next improvements to be as high performing as they can be? Well then, this app is for you!
+Has your Team had troubles consistently and predictably delivering work? Do estimates seem like a shot in the dark, having no bearing on how quickly a work item is delivered? Do you need actionable data to help guide your Team to the next improvements to be as high performing as they can be? Well then, this app is for you!
 
-The Estimation Calibration app walks you through a data analysis of your Team's cycle times by plan estimate. Add the app to a release-scoped custom page and you can start getting insights right away. To start, the app shows your Team's cycle times for each estimate:
+The Estimation Calibration app walks you through a data analysis of your Team's cycle times by plan estimate. To start, the app shows your Team's cycle times for each estimate:
 
 ![Title](assets/flow_step_1.png)
 
@@ -21,7 +21,7 @@ You can then see how these ideal cycle times compare to each box plot:
 
 ![Title](assets/flow_step_4.png)
 
-Using these ideals, we look again at your original data to see how each story aligns to the target ideal zone for cycle times. The top 5 misaligned stories are highlighted and put in a table. This helps your Team focus on the types of stories that would get the most benefit from further calibration:
+Using these ideals, we look again at your original data to see how each work item aligns to the target ideal zone for cycle times. The top 5 misaligned work items are highlighted and put in a table. This helps your Team focus on the types of work items that would get the most benefit from further calibration:
 
 ![Title](assets/flow_step_5.png)
 

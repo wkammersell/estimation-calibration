@@ -1,6 +1,28 @@
 Ext.define('CustomApp', {
 	extend: 'Rally.app.TimeboxScopedApp',
 	scopeType: 'release',
+	getSettingsFields: function() {
+		return [
+			{
+				name: 'includeStories',
+				xtype: 'rallycheckboxfield',
+				fieldLabel: '',
+				boxLabel: 'Include stories in calibration'
+			},
+			{
+				name: 'includeDefects',
+				xtype: 'rallycheckboxfield',
+				fieldLabel: '',
+				boxLabel: 'Include defects in calibration'
+			}
+		];
+	},
+	config: {
+        defaultSettings: {
+            includeStories: true,
+            includeDefects: false
+        }
+    },
 	OUTLIER_THRESHOLD: 1.5,
 	app: null,
 	filterContainer: null,
@@ -87,6 +109,7 @@ Ext.define('CustomApp', {
 	
 	// Use the from date, to date, and scope to determine the time range for the chart
 	beginButtonHandler:function( fromDateField, toDateField ) {
+		app.clearContent( false );
 		var scope = app.getContext().getTimeboxScope();
 		
 		var fromDate = fromDateField.value;
@@ -137,13 +160,28 @@ Ext.define('CustomApp', {
 		});
 		filters.push( estimateFilter );
 
-		var dataScope = app.getContext().getDataContext();
+		// Create a lookup by estimate for the stories of that estimate
+		var estimateTimes = {};
+		
+		// TODO: Have a change to settings regenerate the chart
+		if( this.getSetting( 'includeStories' ) ) {
+			app.fetchCycleTimes( filters, 'UserStory', estimateTimes );
+		} else if( this.getSetting( 'includeDefects' ) ) {
+			app.fetchCycleTimes( filters, 'Defect', estimateTimes );
+		} else {
+			// If neither stories nor defects are selected, there's nothing else to do
+			app.showMessage( 'Please use the app\'s settings to display at least stories or defects.' );
+		}
+	},
+		
+	// Organize the data for the cycle times by estimate scatter chart
+	fetchCycleTimes:function( filters, model, estimateTimes ){
 		var store = Ext.create(
 			'Rally.data.wsapi.Store',
 			{
-				model: 'UserStory',
+				model: model,
 				fetch: ['FormattedID','Name','InProgressDate','AcceptedDate','PlanEstimate'],
-				context: dataScope,
+				context: app.getContext().getDataContext(),
 				pageSize: 2000,
 				limit: 2000,
 				sorters:[{
@@ -160,8 +198,6 @@ Ext.define('CustomApp', {
 			scope: app,
 			callback: function( records, operation ) {
 				if( operation.wasSuccessful() ) {
-					// Create a lookup by estimate for the stories of that estimate
-					var estimateTimes = {};
 					_.each( records, function( record ) {
 						if ( record.data.InProgressDate !== null && record.data.AcceptedDate !== null ) {
 							estimateEntry = {};
@@ -180,7 +216,12 @@ Ext.define('CustomApp', {
 							}
 						}
 					}, app );
-					app.prepareScatterChart( estimateTimes );
+					
+					if( model == 'UserStory' && this.getSetting( 'includeDefects' ) ) {
+						app.fetchCycleTimes( filters, 'Defect', estimateTimes );
+					} else {
+						app.prepareScatterChart( estimateTimes );
+					}
 				}
 			}
 		});
@@ -191,7 +232,7 @@ Ext.define('CustomApp', {
 		if (Object.keys( estimateTimes ).length > 0) {
 			var seriesData = [];
 			seriesData.push( {} );
-			seriesData[0].name = 'Stories';
+			seriesData[0].name = 'Work Items';
 			seriesData[0].data = [];
 			_.each( estimateTimes, function( estimateLookup ) {
 				_.each( estimateLookup, function( story ) {
@@ -208,13 +249,11 @@ Ext.define('CustomApp', {
 			}, app );
 			app.drawScatterChart( seriesData, estimateTimes );
 		} else {
-			app.showNoDataBox();
+			app.showMessage( 'There is no data. There needs to be work items with PlanEstimate which were marked in-progress and accepted within the timebox. You can use the app\'s settings to display stories and/or defects.' );
 		}
 	},
 	
 	drawScatterChart:function( seriesData, estimateTimes ) {
-		app.clearContent( false );
-		
 		scatterChart = contentContainer.add({
 			xtype: 'rallychart',
 			storeConfig: {},
@@ -264,7 +303,7 @@ Ext.define('CustomApp', {
 		
 		contentContainer.add( {
 			xtype: 'label',
-			html: 'This graph shows your completed stories\' cycle times by estimate.*<br/>Click below to see how you can improve your estimates to be more consistent and predictable.<br/><br/>',
+			html: 'This graph shows your completed work items\' cycle times by estimate.*<br/>Click below to see how you can improve your estimates to be more consistent and predictable.<br/><br/>',
 			style: {
 				'font-size': '15px'
 			}
@@ -291,7 +330,7 @@ Ext.define('CustomApp', {
 		
 		contentContainer.add( {
 			xtype: 'label',
-			html: '<br/><br/>* Only stories marked in-progress and accepted in this timebox are tracked. Stories with no estimate, an estimate of 0, or a cycle time of 0.25 days or less are ignored.',
+			html: '<br/><br/>* Only work items marked in-progress and accepted in this timebox are tracked. Work Items with no estimate, an estimate of 0, or a cycle time of 0.25 days or less are ignored. Use the app\'s setting to choose whether you want to calibrate stories, defects, or both.',
 			style: {
 				'font-size': '9px'
 			}
@@ -553,7 +592,7 @@ Ext.define('CustomApp', {
 		
 		contentContainer.add( {
 			xtype: 'label',
-			html: 'Taking these ideal cycle times, let\'s apply them back to our individual story cycle times to see if there are ways to better estimate your work.<br/><br/>',
+			html: 'Taking these ideal cycle times, let\'s apply them back to our individual work item cycle times to see if there are ways to better estimate your work.<br/><br/>',
 			style: {
 				'font-size': '15px'
 			}
@@ -737,7 +776,7 @@ Ext.define('CustomApp', {
 		
 		contentContainer.add( {
 			xtype: 'label',
-			html: 'On the scatter plot of cycle times by estimate, we now have lines to note the minimum and maximum cycle times for each estimate. The stories that need the most readjustment have been marked in blue diamonds, and listed below:<br/><br/>',
+			html: 'On the scatter plot of cycle times by estimate, we now have lines to note the minimum and maximum cycle times for each estimate. The work items that need the most readjustment have been marked in blue diamonds, and listed below:<br/><br/>',
 			style: {
 				'font-size': '15px'
 			}
@@ -805,7 +844,7 @@ Ext.define('CustomApp', {
 		
 		contentContainer.add( {
 			xtype: 'label',
-			html: 'What actions could you take to better estimate stories like these? Some questions to spark discussion:<br/><ul><li>What, had you known it sooner, would have changed your estimate? How could you have known sooner?</li><li>Could this work have been broken down into smaller stories?</li><li>What risks manifested during this work? Could they have been avoided or mitigated?</li><li>Did emergency work cause you to put this work on hold? If so, was it the right decision to change priorities?</li><li>Are there patterns or similarities to this work that you could watch for in future estimations?</li></ul>Please enter actions you could take to better estimate stories like these in the future.<br/><br/>NOTE: These actions are not currently saved, so make a copy for later if you\'d like.',
+			html: 'What actions could you take to better estimate work items like these? Some questions to spark discussion:<br/><ul><li>What, had you known it sooner, would have changed your estimate? How could you have known sooner?</li><li>Could this work have been broken down into smaller work items?</li><li>What risks manifested during this work? Could they have been avoided or mitigated?</li><li>Did emergency work cause you to put this work on hold? If so, was it the right decision to change priorities?</li><li>Are there patterns or similarities to this work that you could watch for in future estimations?</li></ul>Please enter actions you could take to better estimate work items like these in the future.<br/><br/>NOTE: These actions are not currently saved, so make a copy for later if you\'d like.',
 			style: {
 				'font-size': '15px'
 			}
@@ -828,11 +867,11 @@ Ext.define('CustomApp', {
 		} );
 	},
 	
-	showNoDataBox:function(){
+	showMessage:function( text ){
 		app._myMask.hide();
 		contentContainer.add({
 			xtype: 'label',
-			text: 'There is no data. There needs to be stories with PlanEstimate which were marked in-progress and accepted within the timebox.'
+			text: text
 		});
 	},
 	

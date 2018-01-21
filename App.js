@@ -29,10 +29,12 @@ Ext.define('CustomApp', {
 	contentContainer: null,
 	scatterChart: null,
 	boxPlotChart: null,
+	firstLaunch: false,
 	
-	//TODO - Make Stateful https://help.rallydev.com/apps/2.1/doc/#!/guide/state
 	launch: function() {
 		app = this;
+		// Track if this is the first launch so we should auto-load from prefs
+		app.firstLaunch = true;
 		filterContainer = app.down( 'container' );
 		contentContainer = app.add( {
 			xype: 'box',
@@ -73,7 +75,9 @@ Ext.define('CustomApp', {
 					anchor: '100%',
 					fieldLabel: 'From',
 					itemId: fromDateFieldId,
-					name: 'from_date'
+					name: 'from_date',
+					stateful: true,
+					stateId: app.getContext().getScopedStateId( 'fromDate' )
 				} );
 			
 				toDateField = filterContainer.add( {
@@ -82,7 +86,8 @@ Ext.define('CustomApp', {
 					fieldLabel: 'To',
 					itemId: toDateFieldId,
 					name: 'to_date',
-					vale: new Date() // default to today
+					stateful: true,
+					stateId: app.getContext().getScopedStateId( 'toDate' )
 				} );
 				
 				filterContainer.add( {
@@ -95,31 +100,41 @@ Ext.define('CustomApp', {
 						'border-color': '#61257a'
 					}
 				} );
+				
+				// Don't make the user click the Begin button the first time if there are saved values
+				if( app.firstLaunch && ( fromDateField.value || toDateField.value || app.getContext().getTimeboxScope().getRecord() ) ) {
+					app.firstLaunch = false;
+					app.beginButtonHandler( fromDateField, toDateField );
+				}
 			}
 		} else {
-			var scope = app.getContext().getTimeboxScope();
-			if( scope ) {
-				var record = scope.getRecord();
-				app.fetchWorkItems( record.get('ReleaseStartDate'), record.get('ReleaseDate') );
-			} else {
-				app.fetchWorkItems( null, null );
-			}
+			app.beginButtonHandler( null, null );
 		}
 	},
 	
 	// Use the from date, to date, and scope to determine the time range for the chart
 	beginButtonHandler:function( fromDateField, toDateField ) {
 		app.clearContent( false );
-		var scope = app.getContext().getTimeboxScope();
 		
-		var fromDate = fromDateField.value;
-		if( !fromDate && scope ) {
-			fromDate = scope.getRecord().get('ReleaseStartDate');
+		var scope = app.getContext().getTimeboxScope().getRecord();
+		var fromDate = null;
+		if( fromDateField ) {
+			if ( fromDateField.value ) {
+				fromDate = fromDateField.value;
+			}
 		}
-	
-		var toDate = toDateField.value;
+		if( !fromDate && scope ) {
+			fromDate = scope.get('ReleaseStartDate');
+		}
+		
+		var toDate = null;
+		if( toDateField ) {
+			if ( toDateField.value ) {
+				toDate = toDateField.value;
+			}
+		}
 		if( !toDate && scope ) {
-			toDate = scope.getRecord().get('ReleaseDate');
+			toDate = scope.get('ReleaseDate');
 		}
 		
 		app.fetchWorkItems( fromDate, toDate );
@@ -233,6 +248,8 @@ Ext.define('CustomApp', {
 			var seriesData = [];
 			seriesData.push( {} );
 			seriesData[0].name = 'Work Items';
+			// Disable the turbo threshold as we may have a lot of data in the chart
+			seriesData[0].turboThreshold = 0;
 			seriesData[0].data = [];
 			_.each( estimateTimes, function( estimateLookup ) {
 				_.each( estimateLookup, function( story ) {
@@ -911,6 +928,12 @@ Ext.define('CustomApp', {
 		}
 		while( contentContainer.down( 'button' ) ) {
 			contentContainer.down( 'button' ).destroy();
+		}
+		while( contentContainer.down( 'rallygrid' ) ) {
+			contentContainer.down( 'rallygrid' ).destroy();
+		}
+		while( contentContainer.down( 'textareafield' ) ) {
+			contentContainer.down( 'textareafield' ).destroy();
 		}
 		
 		if( !keepCharts ) {

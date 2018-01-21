@@ -93,7 +93,7 @@ Ext.define('CustomApp', {
 				filterContainer.add( {
 					xtype: 'rallybutton',
 					itemId: beginButtonId,
-					text: 'Begin!',
+					text: 'Apply Date Range',
 					handler: function(){ app.beginButtonHandler( fromDateField, toDateField ); },
 					style: {
 						'background-color': '#61257a',
